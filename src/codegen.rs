@@ -75,15 +75,9 @@ fn collect_components_and_children<'a>(
 fn node_to_component(node: &BtmlNode) -> TokenStream {
     let name = &node.tag;
 
-    let has_default = node
-        .flags
-        .iter()
-        .any(|f| f.to_string() == "default");
+    let has_default = node.flags.iter().any(|f| f.to_string() == "default");
 
-    let has_no_default = node
-        .flags
-        .iter()
-        .any(|f| f.to_string() == "no_default");
+    let has_no_default = node.flags.iter().any(|f| f.to_string() == "no_default");
 
     if has_no_default && has_default {
         panic!("Cannot use both 'default' and 'no_default' attributes on the same component.");
@@ -96,14 +90,11 @@ fn node_to_component(node: &BtmlNode) -> TokenStream {
             }
         }
     } else if !node.attributes.is_empty() {
-        let attrs = node
-            .attributes
-            .iter()
-            .map(|a| {
-                let key = &a.key;
-                let val = &a.value;
-                quote! { #key: #val }
-            });
+        let attrs = node.attributes.iter().map(|a| {
+            let key = &a.key;
+            let val = &a.value;
+            quote! { #key: #val }
+        });
 
         if has_no_default {
             quote! {

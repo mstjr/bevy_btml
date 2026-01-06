@@ -31,7 +31,7 @@ fn setup(mut commands: Commands) {
                 <Text>"Hello Bevy!".to_string()</Text>
                 <TextFont font_size=30.0 />
                 <TextColor>Color::WHITE</TextColor>
-            </children>   
+            </children>
             <children>
                 <Button />
                 <ClickMeButton />

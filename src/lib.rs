@@ -63,7 +63,7 @@
 //! );
 //! # }
 //! ```
-//! 
+//!
 //! # Other examples
 //! You can find examples in the `examples/` folder of the repository.
 
@@ -74,7 +74,6 @@ mod codegen;
 mod parse;
 
 use parse::BtmlInput;
-
 
 #[proc_macro]
 pub fn btml(input: TokenStream) -> TokenStream {
