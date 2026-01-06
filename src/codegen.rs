@@ -7,12 +7,12 @@ pub fn generate_bundle_code(nodes: &[BtmlNode]) -> TokenStream {
     let mut components = Vec::new();
 
     for node in nodes {
-        if node.tag.to_string() == "children" {
+        if node.tag == "children" {
             continue;
         }
         components.push(node_to_component(node));
         for child in &node.children {
-            if child.tag.to_string() != "children" {
+            if child.tag != "children" {
                 components.push(node_to_component(child));
             }
         }
@@ -62,7 +62,7 @@ fn collect_components_and_children<'a>(
     components: &mut Vec<TokenStream>,
     children_blocks: &mut Vec<&'a BtmlNode>,
 ) {
-    if node.tag.to_string() == "children" {
+    if node.tag == "children" {
         children_blocks.push(node);
     } else {
         components.push(node_to_component(node));
@@ -75,9 +75,9 @@ fn collect_components_and_children<'a>(
 fn node_to_component(node: &BtmlNode) -> TokenStream {
     let name = &node.tag;
 
-    let has_default = node.flags.iter().any(|f| f.to_string() == "default");
+    let has_default = node.flags.iter().any(|f| *f == "default");
 
-    let has_no_default = node.flags.iter().any(|f| f.to_string() == "no_default");
+    let has_no_default = node.flags.iter().any(|f| *f == "no_default");
 
     if has_no_default && has_default {
         panic!("Cannot use both 'default' and 'no_default' attributes on the same component.");
@@ -110,13 +110,11 @@ fn node_to_component(node: &BtmlNode) -> TokenStream {
                 }
             }
         }
+    } else if has_default {
+        quote! { #name::default() }
     } else {
-        if has_default {
-            quote! { #name::default() }
-        } else {
-            quote! {
-                #name
-            }
+        quote! {
+            #name
         }
     }
 }
