@@ -26,7 +26,7 @@
 //!   <BackgroundColor>Color::BLACK</BackgroundColor>
 //!   ```
 //!
-//! - **Hierarchy**: Use the `<children>` tag to nest entities.
+//! - **Hierarchy**: Use the `<children>` tag to nest entities. Nested node without the `<children>` tag are treated as sibling components of the same entity, even if they are nested.
 //!   ```rust
 //!   btml!(commands,
 //!       <Node default>
