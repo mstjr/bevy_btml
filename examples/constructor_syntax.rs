@@ -17,8 +17,6 @@ fn setup(mut commands: Commands) {
         <Text(new)>"Child Text"</Text>
 
         // Multi-arg
-        <UiTransform(from_rotation)>
-            Rot2 { cos: 0.0, sin: 1.0 }
-        </UiTransform>
+        <UiTransform rotation=Rot2::from_sin_cos(1., 0.), translation=Val2::percent(-50., -50.) />
     );
 }
