@@ -1,13 +1,36 @@
 use proc_macro2::TokenTree;
 use syn::{
-    Expr, Ident, Result, Token, parenthesized,
+    Expr, Ident, Pat, Result, Token, braced, parenthesized,
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
 };
 
 pub struct BtmlInput {
     pub spawner: Option<Ident>,
-    pub nodes: Vec<BtmlNode>,
+    pub nodes: Vec<BtmlChild>,
+}
+
+pub enum BtmlChild {
+    Node(BtmlNode),
+    For(BtmlFor),
+    If(BtmlIf),
+}
+
+pub struct BtmlFor {
+    pub pat: Pat,
+    pub expr: Expr,
+    pub body: Vec<BtmlChild>,
+}
+
+pub struct BtmlIf {
+    pub condition: Expr,
+    pub then_branch: Vec<BtmlChild>,
+    pub else_branch: Option<Box<BtmlElse>>,
+}
+
+pub enum BtmlElse {
+    If(BtmlIf),
+    Block(Vec<BtmlChild>),
 }
 
 pub struct BtmlNode {
@@ -15,7 +38,7 @@ pub struct BtmlNode {
     pub constructor: Option<Ident>,
     pub attributes: Vec<BtmlAttr>,
     pub flags: Vec<Ident>,
-    pub children: Vec<BtmlNode>,
+    pub children: Vec<BtmlChild>,
     pub content: Option<Content>,
 }
 
@@ -42,11 +65,73 @@ impl Parse for BtmlInput {
 
         let mut nodes = Vec::new();
         while !input.is_empty() {
-            let node: BtmlNode = input.parse()?;
-            nodes.push(node);
+            let child: BtmlChild = input.parse()?;
+            nodes.push(child);
         }
 
         Ok(BtmlInput { spawner, nodes })
+    }
+}
+
+impl Parse for BtmlChild {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![for]) {
+            let _for: Token![for] = input.parse()?;
+            let pat: Pat = Pat::parse_multi_with_leading_vert(input)?;
+            let _in: Token![in] = input.parse()?;
+            let expr: Expr = Expr::parse_without_eager_brace(input)?;
+
+            let content;
+            braced!(content in input);
+
+            let mut body = Vec::new();
+            while !content.is_empty() {
+                body.push(content.parse()?);
+            }
+
+            Ok(BtmlChild::For(BtmlFor { pat, expr, body }))
+        } else if input.peek(Token![if]) {
+            let _if: Token![if] = input.parse()?;
+            let condition: Expr = Expr::parse_without_eager_brace(input)?;
+
+            let content;
+            braced!(content in input);
+
+            let mut then_branch = Vec::new();
+            while !content.is_empty() {
+                then_branch.push(content.parse()?);
+            }
+
+            let mut else_branch = None;
+            if input.peek(Token![else]) {
+                let _else: Token![else] = input.parse()?;
+                if input.peek(Token![if]) {
+                    let next_if_child: BtmlChild = input.parse()?;
+                    if let BtmlChild::If(next_if) = next_if_child {
+                        else_branch = Some(Box::new(BtmlElse::If(next_if)));
+                    } else {
+                        return Err(input.error("Expected if after else"));
+                    }
+                } else {
+                    let content;
+                    braced!(content in input);
+                    let mut else_body = Vec::new();
+                    while !content.is_empty() {
+                        else_body.push(content.parse()?);
+                    }
+                    else_branch = Some(Box::new(BtmlElse::Block(else_body)));
+                }
+            }
+
+            Ok(BtmlChild::If(BtmlIf {
+                condition,
+                then_branch,
+                else_branch,
+            }))
+        } else {
+            let node: BtmlNode = input.parse()?;
+            Ok(BtmlChild::Node(node))
+        }
     }
 }
 
@@ -108,27 +193,34 @@ impl Parse for BtmlNode {
         let mut content = None;
 
         if !is_self_closing {
-            if !input.peek(Token![<]) {
+            if !input.peek(Token![<]) && !input.peek(Token![for]) && !input.peek(Token![if]) {
                 let mut tokens = proc_macro2::TokenStream::new();
-                
-                while !input.peek(Token![<]) && !input.is_empty() {
+
+                while !input.peek(Token![<])
+                    && !input.peek(Token![for])
+                    && !input.peek(Token![if])
+                    && !input.is_empty()
+                {
                     let tt: TokenTree = input.parse()?;
                     tokens.extend(std::iter::once(tt));
                 }
 
                 if !tokens.is_empty() {
-                     let parser = Punctuated::<Expr, Token![,]>::parse_terminated;
-                     match parser.parse2(tokens) {
+                    let parser = Punctuated::<Expr, Token![,]>::parse_terminated;
+                    match parser.parse2(tokens) {
                         Ok(args) => {
                             content = Some(Content::Arguments(args));
-                        },
+                        }
                         Err(e) => return Err(e),
-                     }
+                    }
                 }
             }
 
-            while input.peek(Token![<]) && !input.peek2(Token![/]) {
-                let child: BtmlNode = input.parse()?;
+            while (input.peek(Token![<]) && !input.peek2(Token![/]))
+                || input.peek(Token![for])
+                || input.peek(Token![if])
+            {
+                let child: BtmlChild = input.parse()?;
                 children.push(child);
             }
 

@@ -30,6 +30,21 @@ Even though it was made for UI, it can be used to define any entity-component hi
   );
   ```
 - **Expression Support**: Pass Rust expressions as attribute values or content.
+- **Control Flow**: Use Rust `for` loops to dynamically create entities.
+  ```rust
+      for item in items {
+          <Text(new)>item.to_string()</Text>
+      }
+  ```
+  Note: All entities spawned within the loop are children of the parent entity. The loop itself does not create an intermediate wrapper entity.
+- **Conditional Rendering**: Use Rust `if` and `else` blocks to conditionally spawn entities.
+  ```rust
+      if show_button {
+          <Button(new)>"Click Me"</Button>
+      } else {
+          <Text(new)>"Button Hidden"</Text>
+      }
+  ```
 
 ## Usage
 
@@ -71,4 +86,4 @@ You can find examples in the [examples/](./examples/) folder of the repository.
 
 | bevy | bevy_btml |
 | ---- | --------- |
-| 0.17 | `0.1.1`   |
+| 0.17 | `0.1.2`   |

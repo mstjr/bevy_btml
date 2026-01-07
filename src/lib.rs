@@ -44,6 +44,27 @@
 //!   });
 //!   ```
 //!
+//! - **Control Flow**: Use Rust `for` loops inside `<children>` to dynamically create entities.
+//!   ```rust
+//!   <children>
+//!       for item in items {
+//!           <Text(new)>item.to_string()</Text>
+//!       }
+//!   </children>
+//!   ```
+//!   Note: All entities spawned within the loop are separate children of the parent entity. The loop itself does not create an intermediate wrapper entity.
+//!
+//! - **Conditional Rendering**: Use Rust `if` and `else` blocks to conditionally spawn entities.
+//!   ```rust
+//!   <children>
+//!       if show_button {
+//!           <Button(new)>"Click Me"</Button>
+//!       } else {
+//!           <Text(new)>"Button Hidden"</Text>
+//!       }
+//!   </children>
+//!   ```
+//!
 //!
 //! ### Example
 //!

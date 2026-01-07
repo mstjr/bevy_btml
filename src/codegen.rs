@@ -1,19 +1,22 @@
-use crate::parse::{BtmlNode, Content};
+use crate::parse::{BtmlChild, BtmlElse, BtmlNode, Content};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
 
-pub fn generate_bundle_code(nodes: &[BtmlNode]) -> TokenStream {
+pub fn generate_bundle_code(nodes: &[BtmlChild]) -> TokenStream {
     let mut components = Vec::new();
 
-    for node in nodes {
-        if node.tag == "children" {
-            continue;
-        }
-        components.push(node_to_component(node));
-        for child in &node.children {
-            if child.tag != "children" {
-                components.push(node_to_component(child));
+    for child in nodes {
+        match child {
+            BtmlChild::Node(node) => {
+                if node.tag == "children" {
+                    continue;
+                }
+                components.push(node_to_component(node));
+                collect_components_recursive(node, &mut components);
+            }
+            BtmlChild::For(_) | BtmlChild::If(_) => {
+                return quote! { compile_error!("Control flow (For/If) is not allowed in bundle-only mode. Use a spawner.") };
             }
         }
     }
@@ -25,12 +28,26 @@ pub fn generate_bundle_code(nodes: &[BtmlNode]) -> TokenStream {
     }
 }
 
-pub fn generate_spawn_code(spawner: &Ident, nodes: &[BtmlNode]) -> TokenStream {
-    let mut components = Vec::new();
-    let mut children_blocks = Vec::new();
+fn collect_components_recursive(node: &BtmlNode, components: &mut Vec<TokenStream>) {
+    for child in &node.children {
+        match child {
+            BtmlChild::Node(child_node) => {
+                if child_node.tag != "children" {
+                    components.push(node_to_component(child_node));
+                    collect_components_recursive(child_node, components);
+                }
+            }
+            BtmlChild::For(_) | BtmlChild::If(_) => {}
+        }
+    }
+}
 
-    for node in nodes {
-        collect_components_and_children(node, &mut components, &mut children_blocks);
+pub fn generate_spawn_code(spawner: &Ident, nodes: &[BtmlChild]) -> TokenStream {
+    let mut components = Vec::new();
+    let mut children_generators = Vec::new();
+
+    for child in nodes {
+        collect_components_and_children(child, &mut components, &mut children_generators);
     }
 
     let spawn_expr = quote! {
@@ -39,14 +56,39 @@ pub fn generate_spawn_code(spawner: &Ident, nodes: &[BtmlNode]) -> TokenStream {
         ))
     };
 
-    if children_blocks.is_empty() {
+    if children_generators.is_empty() {
         spawn_expr
     } else {
         let mut child_spawns = Vec::new();
-        for child_block in children_blocks {
-            let new_spawner = Ident::new("parent", proc_macro2::Span::call_site());
-            let child_code = generate_spawn_code(&new_spawner, &child_block.children);
-            child_spawns.push(child_code);
+
+        for generator in children_generators {
+            match generator {
+                BtmlChild::Node(child_block) => {
+                    let new_spawner = Ident::new("parent", proc_macro2::Span::call_site());
+                    let child_code = generate_spawn_code(&new_spawner, &child_block.children);
+                    child_spawns.push(child_code);
+                }
+                BtmlChild::For(for_loop) => {
+                    let pat = &for_loop.pat;
+                    let expr = &for_loop.expr;
+                    let body = &for_loop.body;
+
+                    let new_spawner = Ident::new("parent", proc_macro2::Span::call_site());
+                    let body_code = generate_spawn_code(&new_spawner, body);
+
+                    let loop_code = quote! {
+                        for #pat in #expr {
+                            #body_code;
+                        }
+                    };
+                    child_spawns.push(loop_code);
+                }
+                BtmlChild::If(if_node) => {
+                    let new_spawner = Ident::new("parent", proc_macro2::Span::call_site());
+                    let if_code = generate_if_code(&new_spawner, if_node);
+                    child_spawns.push(if_code);
+                }
+            }
         }
 
         quote! {
@@ -57,17 +99,56 @@ pub fn generate_spawn_code(spawner: &Ident, nodes: &[BtmlNode]) -> TokenStream {
     }
 }
 
+fn generate_if_code(spawner: &Ident, if_node: &crate::parse::BtmlIf) -> TokenStream {
+    let condition = &if_node.condition;
+    let then_code = generate_spawn_code(spawner, &if_node.then_branch);
+
+    match &if_node.else_branch {
+        None => {
+            quote! {
+                if #condition {
+                    #then_code;
+                }
+            }
+        }
+        Some(else_branch) => {
+            let else_code = match &**else_branch {
+                BtmlElse::Block(block) => {
+                    let block_code = generate_spawn_code(spawner, block);
+                    quote! { #block_code; }
+                }
+                BtmlElse::If(else_if) => generate_if_code(spawner, else_if),
+            };
+
+            quote! {
+                if #condition {
+                    #then_code;
+                } else {
+                    #else_code
+                }
+            }
+        }
+    }
+}
+
 fn collect_components_and_children<'a>(
-    node: &'a BtmlNode,
+    child: &'a BtmlChild,
     components: &mut Vec<TokenStream>,
-    children_blocks: &mut Vec<&'a BtmlNode>,
+    children_generators: &mut Vec<&'a BtmlChild>,
 ) {
-    if node.tag == "children" {
-        children_blocks.push(node);
-    } else {
-        components.push(node_to_component(node));
-        for child in &node.children {
-            collect_components_and_children(child, components, children_blocks);
+    match child {
+        BtmlChild::Node(node) => {
+            if node.tag == "children" {
+                children_generators.push(child);
+            } else {
+                components.push(node_to_component(node));
+                for inner_child in &node.children {
+                    collect_components_and_children(inner_child, components, children_generators);
+                }
+            }
+        }
+        BtmlChild::For(_) | BtmlChild::If(_) => {
+            children_generators.push(child);
         }
     }
 }
@@ -86,13 +167,12 @@ fn node_to_component(node: &BtmlNode) -> TokenStream {
         match &node.content {
             Some(Content::Arguments(args)) => {
                 quote! { #name::#constructor(#args) }
-            },
+            }
             None => {
                 quote! { #name::#constructor() }
             }
         }
     } else if let Some(content) = &node.content {
-        // Case: <Tag>arg1, arg2</Tag> -> Tag(arg1, arg2)
         match content {
             Content::Arguments(args) => {
                 quote! { #name(#args) }

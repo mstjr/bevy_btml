@@ -12,7 +12,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d::default());
     btml!(commands,
         <Node position_type=PositionType::Absolute, top=Val::Percent(50.), left=Val::Percent(50.)/>
-        
+
         // Single-arg
         <Text(new)>"Child Text"</Text>
 

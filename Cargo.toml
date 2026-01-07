@@ -1,6 +1,6 @@
 [package]
 name = "bevy_btml"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 authors = ["mstjr <mat.stjr@gmail.com>"]
 description = "A macro to create Bevy entity-component hierarchies using an HTML-like syntax."
