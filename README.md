@@ -71,4 +71,4 @@ You can find examples in the [examples/](./examples/) folder of the repository.
 
 | bevy | bevy_btml |
 | ---- | --------- |
-| 0.17 | `0.1.0`   |
+| 0.17 | `0.1.1`   |
