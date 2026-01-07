@@ -15,12 +15,16 @@ Even though it was made for UI, it can be used to define any entity-component hi
   ```rust
   <BackgroundColor>Color::BLACK</BackgroundColor>
   ```
+- **Constructor Support**: Use method calling for components
+  ```rust
+  <Text(new)>"Hello World"</Text>
+  ```
 - **Hierarchy Support**: Nest children directly using the `<children>` tag.
   ```rust
   btml!(commands,
       <Node>
           <children>
-              <Text>"Child Text".to_string()</Text>
+              <Text(new)>"Child Text"</Text>
           </children>
       </Node>
   );
@@ -43,7 +47,7 @@ fn setup(mut commands: Commands) {
         >
             <BackgroundColor>Color::BLACK</BackgroundColor>
             <children>
-                <Text>"Hello Bevy!".to_string()</Text>
+                <Text(new)>"Hello Bevy!"</Text>
                 <TextFont font_size=30.0 />
                 <TextColor>Color::WHITE</TextColor>
             </children>

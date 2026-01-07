@@ -31,7 +31,7 @@
 //!   btml!(commands,
 //!       <Node default>
 //!          <children>
-//!             <Text>"Child".to_string()</Text>
+//!             <Text(new)>"Child"</Text>
 //!             <TextFont font_size=24.0 />
 //!          </children>
 //!       </Node>
@@ -40,7 +40,7 @@
 //!   commands.spawn((
 //!      Node::default(),
 //!   )).with_children(|parent| {
-//!      parent.spawn((Text("Child".to_string()), TextFont { font_size: 24.0, ..Default::default() }));
+//!      parent.spawn((Text::new("Child"), TextFont { font_size: 24.0, ..Default::default() }));
 //!   });
 //!   ```
 //!
@@ -55,7 +55,7 @@
 //!     <Node display=Display::Flex, justify_content=JustifyContent::Center>
 //!         <BackgroundColor>Color::BLACK</BackgroundColor>
 //!         <children>
-//!             <Text>"Hello World".to_string()</Text>
+//!             <Text(new)>"Hello World"</Text>
 //!             <TextFont font_size=30.0 />
 //!             <TextColor>Color::WHITE</TextColor>
 //!         </children>

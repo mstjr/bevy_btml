@@ -83,14 +83,11 @@ fn node_to_component(node: &BtmlNode) -> TokenStream {
     }
 
     if let Some(constructor) = &node.constructor {
-        // Case: <Tag(method)>...
         match &node.content {
             Some(Content::Arguments(args)) => {
-                // <Tag(method)>arg1, arg2</Tag> -> Tag::method(arg1, arg2)
                 quote! { #name::#constructor(#args) }
             },
             None => {
-                // <Tag(method) /> -> Tag::method()
                 quote! { #name::#constructor() }
             }
         }

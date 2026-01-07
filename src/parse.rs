@@ -72,7 +72,6 @@ impl Parse for BtmlNode {
             if input.peek(Token![=]) {
                 let _eq: Token![=] = input.parse()?;
 
-                // Parse value until comma, closing angle bracket, or self-closing slash
                 let mut tokens = proc_macro2::TokenStream::new();
                 while !input.is_empty() {
                     if input.peek(Token![,]) || input.peek(Token![>]) || input.peek(Token![/]) {
