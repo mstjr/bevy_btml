@@ -1,7 +1,8 @@
 use proc_macro2::TokenTree;
 use syn::{
-    Expr, Ident, Result, Token,
-    parse::{Parse, ParseStream},
+    Expr, Ident, Result, Token, parenthesized,
+    parse::{Parse, ParseStream, Parser},
+    punctuated::Punctuated,
 };
 
 pub struct BtmlInput {
@@ -11,6 +12,7 @@ pub struct BtmlInput {
 
 pub struct BtmlNode {
     pub tag: Ident,
+    pub constructor: Option<Ident>,
     pub attributes: Vec<BtmlAttr>,
     pub flags: Vec<Ident>,
     pub children: Vec<BtmlNode>,
@@ -19,7 +21,7 @@ pub struct BtmlNode {
 
 #[derive(Debug)]
 pub enum Content {
-    Expr(Expr),
+    Arguments(Punctuated<Expr, Token![,]>),
 }
 
 #[derive(Debug)]
@@ -53,6 +55,14 @@ impl Parse for BtmlNode {
         let _lt: Token![<] = input.parse()?;
         let tag: Ident = input.parse()?;
 
+        let constructor = if input.peek(syn::token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            Some(content.parse()?)
+        } else {
+            None
+        };
+
         let mut attributes = Vec::new();
         let mut flags = Vec::new();
 
@@ -62,6 +72,7 @@ impl Parse for BtmlNode {
             if input.peek(Token![=]) {
                 let _eq: Token![=] = input.parse()?;
 
+                // Parse value until comma, closing angle bracket, or self-closing slash
                 let mut tokens = proc_macro2::TokenStream::new();
                 while !input.is_empty() {
                     if input.peek(Token![,]) || input.peek(Token![>]) || input.peek(Token![/]) {
@@ -100,17 +111,20 @@ impl Parse for BtmlNode {
         if !is_self_closing {
             if !input.peek(Token![<]) {
                 let mut tokens = proc_macro2::TokenStream::new();
-                let mut text_acc = String::new();
-
+                
                 while !input.peek(Token![<]) && !input.is_empty() {
                     let tt: TokenTree = input.parse()?;
-                    text_acc.push_str(&tt.to_string());
-                    text_acc.push(' ');
                     tokens.extend(std::iter::once(tt));
                 }
 
-                if let Ok(expr) = syn::parse2::<Expr>(tokens.clone()) {
-                    content = Some(Content::Expr(expr));
+                if !tokens.is_empty() {
+                     let parser = Punctuated::<Expr, Token![,]>::parse_terminated;
+                     match parser.parse2(tokens) {
+                        Ok(args) => {
+                            content = Some(Content::Arguments(args));
+                        },
+                        Err(e) => return Err(e),
+                     }
                 }
             }
 
@@ -134,6 +148,7 @@ impl Parse for BtmlNode {
 
         Ok(BtmlNode {
             tag,
+            constructor,
             attributes,
             flags,
             children,

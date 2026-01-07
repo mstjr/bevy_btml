@@ -76,17 +76,29 @@ fn node_to_component(node: &BtmlNode) -> TokenStream {
     let name = &node.tag;
 
     let has_default = node.flags.iter().any(|f| *f == "default");
-
     let has_no_default = node.flags.iter().any(|f| *f == "no_default");
 
     if has_no_default && has_default {
         panic!("Cannot use both 'default' and 'no_default' attributes on the same component.");
     }
 
-    if let Some(content) = &node.content {
+    if let Some(constructor) = &node.constructor {
+        // Case: <Tag(method)>...
+        match &node.content {
+            Some(Content::Arguments(args)) => {
+                // <Tag(method)>arg1, arg2</Tag> -> Tag::method(arg1, arg2)
+                quote! { #name::#constructor(#args) }
+            },
+            None => {
+                // <Tag(method) /> -> Tag::method()
+                quote! { #name::#constructor() }
+            }
+        }
+    } else if let Some(content) = &node.content {
+        // Case: <Tag>arg1, arg2</Tag> -> Tag(arg1, arg2)
         match content {
-            Content::Expr(expr) => {
-                quote! { #name(#expr) }
+            Content::Arguments(args) => {
+                quote! { #name(#args) }
             }
         }
     } else if !node.attributes.is_empty() {
